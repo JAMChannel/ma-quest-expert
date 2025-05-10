@@ -1,0 +1,107 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// 頻出カテゴリを enum で定義
+enum Category {
+  TAX_RELATED       // 事業承継関連税制等
+  LEGAL_RELATED     // 事業承継関連法制等
+  ACCOUNTING        // M&A基礎知識・関連会計
+  M_AND_A_LEGAL     // M&A関連法制等
+}
+
+model Question {
+  id               String     @id @default(cuid())
+  text             String
+  title            String?    // 問題のタイトル（オプション）
+  choices          Choice[]
+  // 正答の選択肢を参照整合性付きで管理
+  correctChoiceId  String?    @unique
+  correctChoice    Choice?    @relation("CorrectChoice", fields: [correctChoiceId], references: [id])
+  category         Category
+  difficulty       Int
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  attempts         Attempt[]
+
+  @@index([category])
+  @@index([difficulty])
+}
+
+model Choice {
+  id               String     @id @default(cuid())
+  text             String
+  order            Int?       // 表示順を管理したい場合に使用
+  questionId       String
+  question         Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  // Question.correctChoice とのリレーション名を一致させる
+  correctQuestion  Question?  @relation("CorrectChoice")
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refreshToken       String?
+  accessToken        String?
+  expiresAt          Int?
+  tokenType          String?
+  scope              String?
+  idToken            String?
+  sessionState       String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String     @id @default(cuid())
+  name          String?
+  email         String?    @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  attempts      Attempt[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Attempt {
+  id         String   @id @default(cuid())
+  userId     String
+  questionId String
+  answer     String
+  isCorrect  Boolean
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
